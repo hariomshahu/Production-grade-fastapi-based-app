@@ -1,0 +1,11 @@
+# Copy to terraform.tfvars and set your values.
+# terraform apply will use these.
+
+aws_region   = "us-east-1"
+project_name = "items-crud"
+environment  = "dev"
+
+# Required: your Git repo containing this app (backend + frontend + terraform).
+# Must be cloneable from the EC2 instances (public repo or attach SSH key to instances).
+app_repo_url   = "https://github.com/YOUR_USER/YOUR_REPO.git"
+app_repo_branch = "main"
