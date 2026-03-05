@@ -2,6 +2,16 @@
 set -e
 export DEBIAN_FRONTEND=noninteractive
 
+# Add swap so npm build doesn't OOM on t3.micro (1GB RAM)
+fallback_swap=/swapfile
+if [ ! -f "$fallback_swap" ]; then
+  dd if=/dev/zero of="$fallback_swap" bs=1M count=1024
+  chmod 600 "$fallback_swap"
+  mkswap "$fallback_swap"
+  swapon "$fallback_swap"
+  echo "$fallback_swap none swap sw 0 0" >> /etc/fstab
+fi
+
 # Install Nginx, Python, Git, Node (for building frontend)
 apt-get update
 apt-get install -y nginx python3-pip python3-venv git curl
@@ -19,27 +29,30 @@ cd "$APP_DIR"
 git clone --depth 1 -b "${branch}" "${repo_url}" repo
 cd repo
 
-# Backend venv and deps
-cd backend
-python3 -m venv venv
-. venv/bin/activate
-pip install --no-cache-dir -r requirements.txt
-cd ..
-
-# Frontend build
-cd frontend
-npm ci
-npm run build
-mkdir -p /var/www/app
-cp -r dist/* /var/www/app/
-cd ..
-
-# Nginx config
+# Apply Nginx config early so we don't serve default "Welcome to nginx"
 cp terraform/nginx-app.conf /etc/nginx/conf.d/app.conf
 rm -f /etc/nginx/sites-enabled/default
 nginx -t
 systemctl enable nginx
 systemctl start nginx
+
+# Backend venv and deps
+cd "$APP_DIR/repo/backend"
+python3 -m venv venv
+. venv/bin/activate
+pip install --no-cache-dir -r requirements.txt
+cd "$APP_DIR/repo"
+
+# Frontend build (swap helps avoid OOM)
+cd frontend
+npm ci
+npm run build
+mkdir -p /var/www/app
+cp -r dist/* /var/www/app/
+cd "$APP_DIR/repo"
+
+# Reload nginx in case we need to pick up new static files
+systemctl reload nginx
 
 # Run FastAPI with Gunicorn (bind to 127.0.0.1 only)
 cd "$APP_DIR/repo/backend"
