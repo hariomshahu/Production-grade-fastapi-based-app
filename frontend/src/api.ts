@@ -36,7 +36,16 @@ export async function createItem(name: string, description?: string): Promise<It
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name, description: description ?? null }),
   })
-  if (!r.ok) throw new Error(await r.text())
+  if (!r.ok) {
+    const text = await r.text()
+    try {
+      const j = JSON.parse(text)
+      throw new Error(j.detail || text)
+    } catch (e) {
+      if (e instanceof Error && e.message !== text) throw e
+      throw new Error(text || `Create failed (${r.status})`)
+    }
+  }
   return r.json()
 }
 

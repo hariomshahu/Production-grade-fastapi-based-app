@@ -20,6 +20,7 @@ locals {
     repo_url   = var.app_repo_url
     branch     = var.app_repo_branch
     table_name = aws_dynamodb_table.items.name
+    aws_region = var.aws_region
   })
 }
 

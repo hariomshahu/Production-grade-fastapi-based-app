@@ -55,11 +55,12 @@ cd "$APP_DIR/repo"
 systemctl reload nginx
 
 # Run FastAPI with Gunicorn (bind to 127.0.0.1 only)
+# Pass DYNAMODB_TABLE explicitly so it is set for the gunicorn process (nohup can drop env)
 cd "$APP_DIR/repo/backend"
 . venv/bin/activate
 export BIND_HOST=127.0.0.1
 export DYNAMODB_TABLE="${table_name}"
 
-# Run in background; use systemd for production-grade process management
-nohup gunicorn -w 2 -k uvicorn.workers.UvicornWorker -b 127.0.0.1:8000 app.main:app > /var/log/app.log 2>&1 &
+# Use env so the variable is visible to gunicorn and its workers (region + table for boto3)
+nohup env BIND_HOST=127.0.0.1 AWS_DEFAULT_REGION="${aws_region}" DYNAMODB_TABLE="${table_name}" gunicorn -w 2 -k uvicorn.workers.UvicornWorker -b 127.0.0.1:8000 app.main:app > /var/log/app.log 2>&1 &
 echo $! > /var/run/app.pid

@@ -1,13 +1,19 @@
 """FastAPI app: CRUD API and optional static mount for local dev."""
+import logging
+import traceback
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.config import BIND_HOST, BIND_PORT
 from app.routers import items
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -17,6 +23,16 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Items API", lifespan=lifespan)
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    """Log full traceback and return error detail so we can debug 500s (e.g. DynamoDB)."""
+    logger.exception("Unhandled exception: %s", exc)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": str(exc), "type": type(exc).__name__},
+    )
 
 app.add_middleware(
     CORSMiddleware,
