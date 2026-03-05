@@ -2,10 +2,11 @@
  * API client for Items CRUD.
  * In dev Vite proxies /items to backend; in prod use same origin (Nginx proxies).
  */
-const getBase = () => {
+const getBase = (): string => {
   const env = import.meta.env?.VITE_API_URL
   if (env) return env.replace(/\/$/, '')
-  return '' // same origin
+  // Same origin: need an absolute origin for new URL() (relative path alone is invalid)
+  return typeof window !== 'undefined' ? window.location.origin : ''
 }
 
 export interface Item {
@@ -16,7 +17,8 @@ export interface Item {
 }
 
 export async function listItems(limit = 100, lastId?: string): Promise<{ items: Item[]; lastEvaluatedKey?: string }> {
-  const url = new URL(`${getBase()}/items`)
+  const base = getBase()
+  const url = base ? new URL('/items', base) : new URL('/items', typeof window !== 'undefined' ? window.location.origin : 'http://localhost')
   url.searchParams.set('limit', String(limit))
   if (lastId) url.searchParams.set('lastEvaluatedKey', lastId)
   const r = await fetch(url.toString())
